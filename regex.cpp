@@ -13,10 +13,16 @@ public:
   
   char match; // target character for matching
 
+
   vector<node*> next; // next link 
 
 public:
-  void init(const string &_name, bool _isTerminal, char _match) {
+
+    void changeIsTerminal(){
+        isTerminal = true;
+    }
+
+    void init(const string &_name, bool _isTerminal, char _match) {
     name = _name;
 
     isTerminal = _isTerminal;
@@ -47,23 +53,23 @@ public:
       cout << "ch: " << ch << endl;
       cout << "transited: " << transited << endl;
       cout << "------------" << endl;
+
 */
 
-      if(state && (match == ch || match == '.')){
+      if(state && (match == ch || (match == '.'))){
         if(isTerminal){
             cout << "  >>>> accepted by " << match << endl;
         }
 
         for(int i = 0 ; i < next.size(); i++){
             next[i]->transition();
-           // cout << next[i] << next[i] ->name << next[i]->match << next[i]-> transited << endl;
+            //cout << next[i] << next[i] ->name << next[i]->match << next[i]-> transited << endl;
         }
     }
 
+      if (!next.empty() &&( (next[0]->match != ((&ch)+1)[0] || (next[0]->match == '\0' && ((&ch)+1)[0] == '\0') )&& ( state && (next.back()-> transited && (next.back()->match == '\0'))))){
 
-      if (!next.empty() && (next[0]->match != ((&ch)+1)[0] && ( state && (next.back()-> transited && (next.back()->match == '\0'))))){
-
-          cout << "  >>>> accepted by1 " << match  << endl;
+          cout << "  >>>> accepted by " << match  << endl;
        }
 
     state = 0; // deactivate this node after matching
@@ -87,7 +93,6 @@ void test(vector<node*> &s, const string &str){
         };   */
     }
 
-    // determine transited state
     for(int j = 0 ; j < s.size(); j++) {
         s[j]->activation();
     }
@@ -99,22 +104,21 @@ vector<node*> makeRegex(const string& str) {
     vector<node*> s;
     for (int i = 0; i < str.length(); i++) {
         node* newNode = new node();
-        string nodeName = "s" + to_string(i);
+        string nodeName = "s" + to_string(s.size());
         bool isTerminal = (i == str.length() - 1);
         char matchChar = str[i];
 
 
         if (matchChar == '*' && !s.empty()) {
-            // '*' 문자는 이전 문자를 반복
             node* prevNode = s.back();
-            prevNode->addNode(prevNode); // 이전 노드가 자기 자신을 가리키게 설정
+            prevNode->addNode(prevNode);
             if (i < str.length() - 1) {
                 i++;
                 node* nextNode = new node();
                 string nextNodeName = "s" + to_string(i);
                 bool nextIsTerminal = (i == str.length() - 1);
                 nextNode->init(nextNodeName, nextIsTerminal, str[i]);
-                prevNode->addNode(nextNode); // 이전 노드가 다음 노드를 가리키게 설정
+                prevNode->addNode(nextNode);
                 s[i-3]->addNode(nextNode);
                 s.push_back(nextNode);
             } else {
@@ -144,6 +148,75 @@ vector<node*> makeRegex(const string& str) {
                 s.push_back(newNode);
                 prevNode->addNode(newNode);
             }
+        } else if (matchChar == '{' && !s.empty()) {
+
+            string range = str.substr(i+1,str.find('}',i) - i - 1);
+            int comma = range.find(',');
+            int min = stoi(range.substr(0,comma));
+            int max = stoi(range.substr(comma+1));
+
+            for (int j = 0; j < max - 1; j++) {
+                node* prevNode = s.back();
+                node* newNode = new node();
+                newNode->init("s" + to_string(s.size()), false,prevNode->match);
+                prevNode->addNode(newNode);
+                s.push_back(newNode);
+            }
+
+            node* nextNode = new node();
+            int nextPos = str.find('}',i);
+            if (nextPos < str.length() - 1){
+                nextPos++;
+                nextNode->init("s"+ to_string(s.size()),(nextPos == str.length() -1),str[nextPos]);
+                s.push_back(nextNode);
+                i =  nextPos;
+            } else {
+                nextNode->init("s"+ to_string(s.size()), true,'\0');
+                s.push_back(nextNode);
+                i =  nextPos;
+            }
+
+            auto it = s.end();
+            it--;
+            it--;
+            for (int j = 0; j < (max - min) + 1 ; j++) {
+                (*it)->addNode(nextNode);
+                it--;
+            }
+
+        } else if ( matchChar == '|' && !s.empty()){
+            node* prevNode = s.back();
+            i++;
+            if (i <str.length() -1){
+                node* newNode = new node();
+                newNode->init("s"+ to_string(s.size()), false,str[i]);
+                s.push_back(newNode);
+                auto it = s.end();
+                it--;
+                it--;
+                it--;
+                (*it)->addNode(newNode);
+                i++;
+                node* nextNode = new node();
+                nextNode->init("s"+ to_string(s.size()),i == str.length() -1,str[i]);
+                s.push_back(nextNode);
+                newNode->addNode(nextNode);
+                prevNode->addNode(nextNode);
+
+            } else {
+                node* newNode = new node();
+                newNode->init("s" + to_string(s.size()),true,str[i]);
+                s.push_back(newNode);
+                auto it = s.end();
+                it--;
+                it--;
+                it--;
+                (*it)->addNode(newNode);
+                prevNode->changeIsTerminal();
+
+
+            }
+
         }
         else {
             newNode->init(nodeName, isTerminal, matchChar);
@@ -164,10 +237,12 @@ vector<node*> makeRegex(const string& str) {
 
 int main(){
 
-    string test1 = "abccd";
+    string test1 = "abc";
 
-  vector<node*> s1 = makeRegex("abc+d");
-  test(s1,test1);
+    vector<node*> s1 = makeRegex("abc*");
+    test(s1,test1);
+
+
 
 
 
